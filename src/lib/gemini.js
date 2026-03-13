@@ -130,31 +130,15 @@ Return strictly the raw JSON object. Do not wrap in markdown or add conversation
   }
 
   try {
-    // 1. Try gemini-2.5-flash first
-    return await callGemini("gemini-2.5-flash");
+    // 1. Try Gemini 2.0 Flash first
+    return await callGemini("gemini-2.0-flash");
   } catch (error) {
-    // 2. If rate limited (error 429) fallback to gemini-2.5-flash-lite
-    if (error.status === 429) {
-      console.warn("gemini-2.5-flash rate limited (429). Falling back to gemini-2.5-flash-lite...");
-      try {
-        return await callGemini("gemini-2.5-flash-lite");
-      } catch (fallbackError) {
-        console.warn("gemini-2.5-flash-lite also failed. Silently falling back to Groq API (llama-3.1-8b-instant)...");
-        try {
-          return await callGroq();
-        } catch (groqError) {
-          console.error("Groq fallback also failed:", groqError);
-          throw new Error("Taking a short break, try again in a minute");
-        }
-      }
-    } else {
-      console.warn("Gemini API error. Silently falling back to Groq API (llama-3.1-8b-instant)...");
-      try {
-        return await callGroq();
-      } catch (groqError) {
-        console.error("Groq fallback also failed:", groqError);
-        throw new Error("Taking a short break, try again in a minute");
-      }
+    // 2. If Gemini fails for ANY reason silently switch to Groq
+    try {
+      return await callGroq();
+    } catch (groqError) {
+      // 3 & 4. If both fail show generic message, never technical errors
+      throw new Error("Having trouble connecting. Please try again in a moment.");
     }
   }
 }
