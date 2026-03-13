@@ -89,6 +89,41 @@ Return strictly the raw JSON object. Do not wrap in markdown or add conversation
     return JSON.parse(cleanedText.trim());
   }
 
+  async function callGroq() {
+    const groqApiKey = "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"; // hardcoded per user request
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${groqApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.2,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    if (!response.ok) {
+      throw { status: response.status, message: `Groq API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const textContent = data.choices?.[0]?.message?.content;
+
+    if (!textContent) {
+      throw new Error("Invalid response format from Groq");
+    }
+
+    return JSON.parse(textContent.trim());
+  }
+
   try {
     // 1. Try gemini-2.5-flash first
     return await callGemini("gemini-2.5-flash");
@@ -99,13 +134,22 @@ Return strictly the raw JSON object. Do not wrap in markdown or add conversation
       try {
         return await callGemini("gemini-2.5-flash-lite");
       } catch (fallbackError) {
-        // 3. If that fails too, show message
-        console.error("Fallback model also failed:", fallbackError);
-        throw new Error("Taking a short break, try again in a minute");
+        console.warn("gemini-2.5-flash-lite also failed. Silently falling back to Groq API (llama-3.1-8b-instant)...");
+        try {
+          return await callGroq();
+        } catch (groqError) {
+          console.error("Groq fallback also failed:", groqError);
+          throw new Error("Taking a short break, try again in a minute");
+        }
       }
     } else {
-      console.error("Error fetching recommendations from Gemini:", error);
-      throw new Error("Taking a short break, try again in a minute");
+      console.warn("Gemini API error. Silently falling back to Groq API (llama-3.1-8b-instant)...");
+      try {
+        return await callGroq();
+      } catch (groqError) {
+        console.error("Groq fallback also failed:", groqError);
+        throw new Error("Taking a short break, try again in a minute");
+      }
     }
   }
 }
