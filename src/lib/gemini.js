@@ -90,7 +90,12 @@ Return strictly the raw JSON object. Do not wrap in markdown or add conversation
   }
 
   async function callGroq() {
-    const groqApiKey = "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"; // hardcoded per user request
+    const groqApiKey = import.meta.env.VITE_GROQ_KEY;
+    
+    if (!groqApiKey) {
+      throw new Error("Groq API key is not set. Please check your .env file.");
+    }
+    
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
